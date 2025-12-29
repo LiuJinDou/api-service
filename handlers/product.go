@@ -1,0 +1,133 @@
+package handlers
+
+import (
+	"api-service/database"
+	"api-service/models"
+	"net/http"
+	"strconv"
+
+	"github.com/gin-gonic/gin"
+)
+
+type ProductHandler struct {
+	db *database.DB
+}
+
+func NewProductHandler() *ProductHandler {
+	return &ProductHandler{
+		db: database.GetDB(),
+	}
+}
+
+// ListProducts retrieves all products
+func (h *ProductHandler) ListProducts(c *gin.Context) {
+	category := c.Query("category")
+
+	var products []models.Product
+	if category != "" {
+		products = h.db.SearchProducts(category)
+	} else {
+		products = h.db.GetAllProducts()
+	}
+
+	response := models.ProductListResponse{
+		Total:    len(products),
+		Page:     1,
+		PageSize: len(products),
+		Products: products,
+	}
+
+	c.JSON(http.StatusOK, response)
+}
+
+// GetProduct retrieves a single product by ID
+func (h *ProductHandler) GetProduct(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+		return
+	}
+
+	product, exists := h.db.GetProduct(id)
+	if !exists {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, product)
+}
+
+// CreateProduct creates a new product
+func (h *ProductHandler) CreateProduct(c *gin.Context) {
+	var req models.CreateProductRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	product := &models.Product{
+		Name:        req.Name,
+		Description: req.Description,
+		Price:       req.Price,
+		Stock:       req.Stock,
+		Category:    req.Category,
+	}
+
+	createdProduct := h.db.CreateProduct(product)
+	c.JSON(http.StatusCreated, createdProduct)
+}
+
+// UpdateProduct updates an existing product
+func (h *ProductHandler) UpdateProduct(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+		return
+	}
+
+	var req models.UpdateProductRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	product, exists := h.db.UpdateProduct(id, &req)
+	if !exists {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, product)
+}
+
+// DeleteProduct deletes a product
+func (h *ProductHandler) DeleteProduct(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid product ID"})
+		return
+	}
+
+	success := h.db.DeleteProduct(id)
+	if !success {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Product not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Product deleted successfully"})
+}
+
+// GetProductsByCategory filters products by category
+func (h *ProductHandler) GetProductsByCategory(c *gin.Context) {
+	category := c.Param("category")
+	products := h.db.SearchProducts(category)
+
+	c.JSON(http.StatusOK, gin.H{
+		"category": category,
+		"total":    len(products),
+		"products": products,
+	})
+}
