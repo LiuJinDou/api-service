@@ -11,6 +11,12 @@ func main() {
 	r := gin.Default()
 
 	// Health check
+	// @Summary Health check
+	// @Description Check if the API service is running
+	// @Tags Health
+	// @Produce json
+	// @Success 200 {object} map[string]string
+	// @Router /health [get]
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"status":  "healthy",
